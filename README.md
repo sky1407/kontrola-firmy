@@ -1,5 +1,9 @@
 # Kontrola firmy – Slovak company risk check by IČO
 
+[![CI](https://github.com/sky1407/kontrola-firmy/actions/workflows/ci.yml/badge.svg)](https://github.com/sky1407/kontrola-firmy/actions/workflows/ci.yml)
+
+**Live demo: [kontrola-firmy.vercel.app](https://kontrola-firmy.vercel.app)** – try [a small company with a 5-year trend](https://kontrola-firmy.vercel.app/firma/53445911).
+
 Before you sign a contract or send an invoice, enter the company's IČO (company ID) and get:
 
 - **5-year financial trend**: revenue, net profit/loss, equity, liabilities and total assets, parsed from official financial statements,
@@ -38,7 +42,9 @@ Key decisions:
 
 ## Tech stack
 
-Next.js 16 (App Router) · TypeScript (strict) · Prisma 7 + PostgreSQL · Zod · Recharts · Tailwind CSS 4 · Vitest · GitHub Actions
+Next.js 16 (App Router) · TypeScript (strict) · Prisma 7 + PostgreSQL (Neon) · Zod · Recharts · Tailwind CSS 4 · Vitest · GitHub Actions · Vercel (fra1)
+
+Deployment: every push to `main` deploys to Vercel; production builds run `prisma migrate deploy` over the unpooled connection and abort if a migration fails.
 
 ## Running locally
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SearchForm } from "@/components/SearchForm";
 
 const EXAMPLES = [
+  { ico: "53445911", label: "K - Craft (malá s.r.o., 5 rokov dát)" },
   { ico: "31322832", label: "Slovnaft (veľká firma, IFRS v PDF)" },
   { ico: "56813279", label: "Travel Tech (nová s.r.o.)" },
 ];
