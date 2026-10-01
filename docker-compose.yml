@@ -1,0 +1,14 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: kontrola-firmy-db
+    environment:
+      POSTGRES_USER: kontrola
+      POSTGRES_PASSWORD: kontrola
+      POSTGRES_DB: kontrola_firmy
+    # 5433, aby nekolidoval s inými lokálnymi Postgresmi
+    ports: ["5433:5432"]
+    volumes: [db-data:/var/lib/postgresql/data]
+
+volumes:
+  db-data:

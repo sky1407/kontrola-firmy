@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Kontrola firmy – Slovak company risk check by IČO
 
-## Getting Started
+Before you sign a contract or send an invoice, enter the company's IČO (company ID) and get:
 
-First, run the development server:
+- **5-year financial trend**: revenue, net profit/loss, equity, liabilities and total assets, parsed from official financial statements,
+- **a transparent risk score**: every point deducted is explained (negative equity, losses 3 years in a row, missing financial statement, …),
+- links to the original PDF statements where structured data isn't available (IFRS companies, non-profits).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+Data comes from the public API of the Slovak [Register of Financial Statements (RÚZ)](https://www.registeruz.sk/cruz-public/home/api).
+
+## Architecture
+
+```
+Browser ──► Next.js (App Router, server components)
+              │
+              ├─ /firma?ico=…         validates & normalizes IČO → redirect to canonical URL
+              └─ /firma/[ico]         streams a skeleton, then the report
+                    │
+                    ▼
+              getCompanyReport()  ── fresh cache? ──► Postgres (company_snapshots, JSONB)
+                    │ no / expired
+                    ▼
+              getCompanyProfile() ──► RÚZ API (≤3 concurrent requests, timeout + 1 retry,
+                                       every response validated with Zod)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Key decisions:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Problem | Solution |
+| --- | --- |
+| RÚZ needs 3–4 chained requests per year of data (entity → statements → reports) | Profile cached in Postgres for 24 h; repeat lookups take ~10 ms instead of 1–3 s |
+| The public registry is sometimes slow or down | Timeout + retry on 429/5xx; if it fails, an expired snapshot is served and marked as stale |
+| Partial failures (one statement out of five times out) | The profile is kept but flagged `incomplete` and cached for only 1 h |
+| Statements are flat arrays of strings tied to form templates | Explicit row mappings per template (`687` micro, `699` small/large) verified by tests against real registry data |
+| The registry returns deleted duplicates and records with other IDs | Deleted records are filtered out, the IČO is matched exactly and the most recently updated record wins |
+| A database outage | Read/write errors are logged and the request goes straight to the registry |
+| Cache schema evolves | Snapshots are versioned; old versions are treated as a cache miss |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Tech stack
 
-## Learn More
+Next.js 16 (App Router) · TypeScript (strict) · Prisma 7 + PostgreSQL · Zod · Recharts · Tailwind CSS 4 · Vitest · GitHub Actions
 
-To learn more about Next.js, take a look at the following resources:
+## Running locally
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+cp .env.example .env
+docker compose up -d          # Postgres on port 5433
+npm install                   # also generates the Prisma client
+npx prisma migrate dev
+npm run dev                   # http://localhost:3000
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm test          # unit tests (no network, no DB)
+npm run typecheck
+npm run lint
+```
 
-## Deploy on Vercel
+## Roadmap
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- [x] Search by IČO, financial trend, risk score, Postgres cache
+- [ ] Daily import of public debtor lists (Social Insurance Agency, health insurers, Financial Administration) via cron
+- [ ] Watchlist with e-mail alerts when a company's risk changes
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Disclaimer
+
+This is an informational tool based on public data. It is not legal or financial advice.
